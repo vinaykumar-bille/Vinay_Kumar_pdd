@@ -1,0 +1,23 @@
+{
+  "name": "ai-doctor-backend",
+  "version": "1.0.0",
+  "description": "Express backend for AI Doctor Appointment System",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.7.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.3.1",
+    "openai": "^4.38.2",
+    "socket.io": "^4.8.4"
+  }
+}
