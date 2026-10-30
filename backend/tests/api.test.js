@@ -1,6 +1,7 @@
 import assert from 'assert';
 import dbStore from '../src/models/store.js';
 import aiService from '../src/services/aiService.js';
+import { generateToken, verifyAuth } from '../src/middleware/auth.js';
 
 console.log('🧪 Starting MediBook AI Automated Verification Test Suite...\n');
 
@@ -182,6 +183,118 @@ async function runTests() {
     assert(analytics.totalDoctors >= 6, 'Doctor count matches active records');
     assert(analytics.totalAppointments >= 5, 'Appointment count matches active records');
     assert(analytics.statusCounts.COMPLETED >= 1, 'Completed appointments tracked');
+  });
+
+  // =========================================================================
+  // OLLAMA LOCAL LLM & HEALTHCARE ASSISTANT BACKEND TESTS
+  // =========================================================================
+
+  // Test 13: Ollama local LLM status inquiry
+  await test('Ollama status endpoint returns structured diagnostic metrics', async () => {
+    const status = await aiService.getOllamaStatus();
+    assert(status.status === 'CONNECTED' || status.status === 'UNAVAILABLE', 'Status must be CONNECTED or UNAVAILABLE');
+    assert(typeof status.configuredModel === 'string', 'configuredModel must be defined');
+    assert(typeof status.isModelAvailable === 'boolean', 'isModelAvailable must be boolean');
+  });
+
+  // Test 14: Healthcare conversational assistant guides appointment scheduling
+  await test('Healthcare conversational assistant guides appointment scheduling and maintains medical disclaimer', async () => {
+    const reply = await aiService.chatAssistant({
+      message: 'How can I book an appointment with a doctor?'
+    });
+    assert(reply.reply, 'Assistant must return a reply');
+    assert(reply.reply.includes('Book an Appointment') || reply.reply.includes('Find a Doctor'), 'Must guide booking workflow');
+    assert(reply.reply.includes('Disclaimer') || reply.disclaimer, 'Medical disclaimer must be present');
+  });
+
+  // Test 15: Emergency red-flag symptoms immediately trigger critical alert
+  await test('Emergency red-flag symptoms trigger critical emergency notice over ordinary response', async () => {
+    const reply = await aiService.chatAssistant({
+      message: 'Patient has sudden crushing chest pain and severe shortness of breath'
+    });
+    assert.strictEqual(reply.urgency, 'CRITICAL_EMERGENCY');
+    assert.strictEqual(reply.action, 'EMERGENCY_ALERT');
+    assert(reply.reply.includes('108') || reply.reply.includes('112') || reply.reply.includes('Emergency Room'));
+  });
+
+  // Test 16: Chat input validation rejects empty and oversized messages
+  await test('Chat input validation rejects empty, whitespace, and oversized messages', async () => {
+    let emptyCaught = false;
+    try {
+      await aiService.chatAssistant({ message: '   ' });
+    } catch (e) {
+      emptyCaught = true;
+      assert(e.message.includes('required') || e.message.includes('empty'));
+    }
+    assert(emptyCaught, 'Empty message must throw error');
+
+    let oversizedCaught = false;
+    try {
+      await aiService.chatAssistant({ message: 'x'.repeat(2500) });
+    } catch (e) {
+      oversizedCaught = true;
+      assert(e.message.includes('exceeds'));
+    }
+    assert(oversizedCaught, 'Oversized message (>2000 chars) must throw error');
+  });
+
+  // Test 17: Authenticated user chat verification with JWT Bearer token
+  await test('Authenticated user chat route verifies valid JWT Bearer token', async () => {
+    const testUser = await dbStore.findUserById(testPatientId);
+    assert(testUser, 'Test patient must exist');
+    const token = generateToken(testUser);
+
+    let nextCalled = false;
+    const mockReq = {
+      headers: { authorization: `Bearer ${token}` }
+    };
+    const mockRes = {
+      status(code) { this.statusCode = code; return this; },
+      json(data) { this.body = data; return this; }
+    };
+
+    await verifyAuth(mockReq, mockRes, () => { nextCalled = true; });
+    assert(nextCalled, 'verifyAuth must call next() for valid token');
+    assert(mockReq.user && mockReq.user.id === testPatientId, 'req.user must be populated');
+  });
+
+  // Test 18: Unauthenticated chat request rejection (HTTP 401 Unauthorized)
+  await test('Unauthenticated chat request is rejected with HTTP 401', async () => {
+    let nextCalled = false;
+    let statusCode = 200;
+    let responseBody = null;
+
+    const mockReq = { headers: {} };
+    const mockRes = {
+      status(code) { statusCode = code; return this; },
+      json(data) { responseBody = data; return this; }
+    };
+
+    await verifyAuth(mockReq, mockRes, () => { nextCalled = true; });
+    assert(!nextCalled, 'verifyAuth must NOT call next() when token is missing');
+    assert.strictEqual(statusCode, 401, 'Must return 401 status');
+    assert(responseBody.error.includes('No token provided'), 'Error must specify missing token');
+  });
+
+  // Test 19: Invalid payload rejection with 400 Bad Request
+  await test('Empty or non-string message payload is rejected', async () => {
+    let err = false;
+    try {
+      await aiService.chatAssistant({ message: '' });
+    } catch (e) {
+      err = true;
+    }
+    assert(err, 'Empty message must be rejected');
+  });
+
+  // Test 20: AI microservice resilience and fallback
+  await test('AI assistant provides reliable clinical fallback when external service is offline', async () => {
+    // Calling chat with a non-emergency clinical symptom
+    const reply = await aiService.chatAssistant({
+      message: 'I have severe knee pain and joint swelling when walking'
+    });
+    assert(reply.reply, 'Must return a guidance reply');
+    assert(reply.recommendedDepartment === 'Orthopedics' || reply.reply.includes('Orthopedics'), 'Must route to Orthopedics');
   });
 
   console.log(`\n========================================`);

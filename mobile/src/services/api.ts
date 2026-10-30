@@ -366,6 +366,21 @@ export const mobileApi = {
   },
 
   ai: {
+    chat: async (message: string, history?: Array<{ role: string; content: string }>) => {
+      try {
+        const res = await axiosClient.post('/ai/chat', { message, history });
+        return res.data;
+      } catch (e) {
+        const triageRes = await mobileApi.ai.triage(message);
+        return {
+          reply: `Based on your symptoms, we suggest checking our **${triageRes.recommendedDepartment}** department.\n\nReason: ${triageRes.explanation}\n\n*Note: Operating in offline fallback mode.*`,
+          recommendedDepartment: triageRes.recommendedDepartment,
+          urgency: triageRes.emergencyWarning ? "CRITICAL_EMERGENCY" : "NORMAL",
+          source: "MOBILE_CLIENT_FALLBACK"
+        };
+      }
+    },
+
     triage: async (symptoms: string) => {
       try {
         const res = await axiosClient.post('/ai/triage', { symptoms });

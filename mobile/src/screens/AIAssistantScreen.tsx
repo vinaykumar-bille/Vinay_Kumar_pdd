@@ -41,15 +41,14 @@ export const AIAssistantScreen: React.FC<AIAssistantScreenProps> = ({ onSelectDe
     setLoading(true);
 
     try {
-      const triage = await mobileApi.ai.triage(query);
-      const isEmergency = triage.emergencyWarning || query.toLowerCase().includes("severe chest");
+      const historyPayload = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
+      const chatRes = await mobileApi.ai.chat(query, historyPayload);
+      const isEmergency = chatRes.urgency === 'CRITICAL_EMERGENCY' || chatRes.action === 'EMERGENCY_ALERT';
 
       const botReply: Message = {
         role: 'assistant',
-        content: isEmergency
-          ? `🚨 EMERGENCY WARNING: Your symptoms may indicate a critical emergency condition.\n\nPlease seek immediate local emergency medical services (Call 108/112) rather than waiting for an online scheduled appointment.\n\nIf stabilized, your symptoms generally fall under **${triage.recommendedDepartment}**.`
-          : `Based on your symptoms, we recommend consulting our **${triage.recommendedDepartment}** department.\n\nReason: ${triage.explanation}\n\nWould you like to browse and book an available specialist in ${triage.recommendedDepartment}?`,
-        recommendedDepartment: triage.recommendedDepartment,
+        content: chatRes.reply || "Thank you. Our clinic team is available to assist you.",
+        recommendedDepartment: chatRes.recommendedDepartment,
         isEmergency
       };
 
@@ -57,7 +56,7 @@ export const AIAssistantScreen: React.FC<AIAssistantScreenProps> = ({ onSelectDe
     } catch (e) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: "Sorry, I am temporarily having trouble reaching the clinical NLP model. For general health checkups, please browse General Medicine."
+        content: "Sorry, I am temporarily having trouble reaching the healthcare assistant. For clinical consultations, please browse available departments."
       }]);
     } finally {
       setLoading(false);

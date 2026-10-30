@@ -98,204 +98,177 @@ const saveMockDb = (db) => {
   localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
 };
 
-// Safe API caller wrapper
 const apiRequest = async (method, url, data = null, params = null) => {
   try {
-    const config = { method, url };
-    if (data) config.data = data;
-    if (params) config.params = params;
+    const config = { method, url, data, params };
     const response = await axiosInstance(config);
     return response.data;
   } catch (error) {
-    console.warn(`Backend connection unavailable for ${url}. Executing on-the-fly client state integration!`, error);
+    if (error.response) {
+      throw error;
+    }
 
-    // Simulate API logic locally using local storage!
+    console.warn(`[Client Fallback] Backend unreachable at ${url}. Operating in local demo store.`);
     const db = getMockDb();
 
-    // 1. Auth Mock API
+    // 1. Auth Login Fallback
     if (url === '/auth/login') {
-      const user = db.users.find(u => u.email.toLowerCase() === data.email.toLowerCase() && u.role === data.role);
-      if (!user) throw new Error("Invalid credentials or role.");
-      return user;
-    }
-
-    if (url === '/auth/register') {
-      const existing = db.users.find(u => u.email.toLowerCase() === data.email.toLowerCase());
-      if (existing) return existing;
-      const id = "usr_" + (db.users.length + 1);
-      const newUser = { id, ...data };
-      db.users.push(newUser);
-      saveMockDb(db);
-      return newUser;
-    }
-
-    // 2. Doctors Mock API
-    if (url === '/doctors') {
-      if (method === 'get') {
-        if (params && params.department) {
-          return db.doctors.filter(d => d.department.toLowerCase() === params.department.toLowerCase());
-        }
-        return db.doctors;
-      }
-      if (method === 'post') {
-        const id = "doc_" + (db.doctors.length + 1);
-        const newDoc = { id, ...data, rating: 4.8, imageUrl: data.imageUrl || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400" };
-        db.doctors.push(newDoc);
-        db.users.push({ id, name: newDoc.name, email: newDoc.email, role: 'doctor', docId: id });
-        saveMockDb(db);
-        return newDoc;
-      }
-    }
-
-    if (url.startsWith('/doctors/')) {
-      const id = url.split('/').pop();
-      if (method === 'put') {
-        const idx = db.doctors.findIndex(d => d.id === id);
-        if (idx !== -1) {
-          db.doctors[idx] = { ...db.doctors[idx], ...data };
-          saveMockDb(db);
-          return db.doctors[idx];
-        }
-      }
-      if (method === 'delete') {
-        db.doctors = db.doctors.filter(d => d.id !== id);
-        db.users = db.users.filter(u => u.id !== id);
-        saveMockDb(db);
-        return { success: true };
-      }
-    }
-
-    // 3. Patients Mock API
-    if (url === '/patients') {
-      return db.users.filter(u => u.role === 'patient');
-    }
-
-    // 4. Appointments Mock API
-    if (url === '/appointments') {
-      if (method === 'get') {
-        let list = db.appointments;
-        if (params) {
-          if (params.patientId) list = list.filter(a => a.patientId === params.patientId);
-          if (params.doctorId) list = list.filter(a => a.doctorId === params.doctorId);
-        }
-        return list;
-      }
-      if (method === 'post') {
-        // Smart Check: Avoid overlapping appointments
-        const doctor = db.doctors.find(d => d.id === data.doctorId);
-        const overlapping = db.appointments.find(a =>
-          a.doctorId === data.doctorId &&
-          a.date === data.date &&
-          a.timeSlot === data.timeSlot &&
-          a.status !== "Rejected"
-        );
-        if (overlapping) {
-          throw new Error("Overlap Detected! This specific slot is already reserved by another patient. Please choose an alternative slot.");
-        }
-
-        const id = "app_" + (db.appointments.length + 1);
-        const newApp = {
-          id,
-          patientId: data.patientId,
-          patientName: data.patientName,
-          doctorId: data.doctorId,
-          doctorName: doctor ? doctor.name : "Selected Doctor",
-          department: doctor ? doctor.department : "General",
-          date: data.date,
-          timeSlot: data.timeSlot,
-          status: "Pending",
-          symptoms: data.symptoms || "General Checkup",
-          notes: "",
-          createdAt: new Date().toISOString()
+      const { email, password, role } = data;
+      const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (user) {
+        return {
+          token: "mock_jwt_token_sample_2026",
+          user: { ...user, token: "mock_jwt_token_sample_2026" }
         };
-        db.appointments.push(newApp);
-
-        // Notify
-        db.notifications.push({
-          id: "n_" + (db.notifications.length + 1),
-          userId: data.patientId,
-          title: "Appointment Booked",
-          message: `Your booking request for Dr. ${doctor ? doctor.name : 'Doctor'} on ${data.date} is successfully logged and pending approval.`,
-          read: false,
-          createdAt: new Date().toISOString()
-        });
-
-        saveMockDb(db);
-        return newApp;
       }
+      const newMockUser = {
+        id: `usr_${Date.now()}`,
+        name: email.split('@')[0],
+        email,
+        role: role || 'patient',
+        gender: "Not specified",
+        age: 30
+      };
+      db.users.push(newMockUser);
+      saveMockDb(db);
+      return {
+        token: "mock_jwt_token_sample_2026",
+        user: { ...newMockUser, token: "mock_jwt_token_sample_2026" }
+      };
     }
 
-    if (url.startsWith('/appointments/') && url.endsWith('/status')) {
+    // 2. Auth Register Fallback
+    if (url === '/auth/register') {
+      const newPatient = {
+        id: `usr_${Date.now()}`,
+        ...data,
+        role: data.role || 'patient'
+      };
+      db.users.push(newPatient);
+      saveMockDb(db);
+      return {
+        token: "mock_jwt_token_sample_2026",
+        user: { ...newPatient, token: "mock_jwt_token_sample_2026" }
+      };
+    }
+
+    // 3. Doctors Fallback
+    if (url === '/doctors' || url.startsWith('/doctors?')) {
+      if (params && params.department && params.department !== 'All') {
+        return db.doctors.filter(d => d.department.toLowerCase() === params.department.toLowerCase());
+      }
+      return db.doctors;
+    }
+    if (url.startsWith('/doctors/') && url.includes('/availability')) {
+      return {
+        date: params?.date || new Date().toISOString().split('T')[0],
+        availableSlots: ["09:00 AM", "10:00 AM", "11:30 AM", "02:00 PM", "03:30 PM", "04:30 PM"]
+      };
+    }
+    if (url.startsWith('/doctors/')) {
       const id = url.split('/')[2];
-      const appIdx = db.appointments.findIndex(a => a.id === id);
-      if (appIdx !== -1) {
-        db.appointments[appIdx].status = data.status;
-        if (data.notes) db.appointments[appIdx].notes = data.notes;
+      const doc = db.doctors.find(d => d.id === id);
+      if (doc) return doc;
+      return db.doctors[0];
+    }
 
-        db.notifications.push({
-          id: "n_" + (db.notifications.length + 1),
-          userId: db.appointments[appIdx].patientId,
-          title: `Appointment ${data.status}`,
-          message: `Your appointment with ${db.appointments[appIdx].doctorName} on ${db.appointments[appIdx].date} has been ${data.status.toLowerCase()}.`,
-          read: false,
-          createdAt: new Date().toISOString()
-        });
-
+    // 4. Appointments Fallback
+    if (url === '/appointments' && method === 'get') {
+      if (params && params.patientId) {
+        return db.appointments.filter(a => a.patientId === params.patientId);
+      }
+      if (params && params.doctorId) {
+        return db.appointments.filter(a => a.doctorId === params.doctorId);
+      }
+      return db.appointments;
+    }
+    if (url === '/appointments' && method === 'post') {
+      const newAppt = {
+        id: `app_${Date.now()}`,
+        ...data,
+        status: 'Approved',
+        createdAt: new Date().toISOString()
+      };
+      db.appointments.unshift(newAppt);
+      saveMockDb(db);
+      return newAppt;
+    }
+    if (url.includes('/reschedule')) {
+      const id = url.split('/')[2];
+      const appt = db.appointments.find(a => a.id === id);
+      if (appt) {
+        appt.date = data.date;
+        appt.timeSlot = data.timeSlot;
+        appt.status = 'Approved';
         saveMockDb(db);
-        return db.appointments[appIdx];
+        return appt;
+      }
+    }
+    if (url.includes('/cancel')) {
+      const id = url.split('/')[2];
+      const appt = db.appointments.find(a => a.id === id);
+      if (appt) {
+        appt.status = 'Cancelled';
+        saveMockDb(db);
+        return appt;
+      }
+    }
+    if (url.includes('/status')) {
+      const id = url.split('/')[2];
+      const appt = db.appointments.find(a => a.id === id);
+      if (appt) {
+        appt.status = data.status;
+        saveMockDb(db);
+        return appt;
       }
     }
 
-    // 5. Prescriptions Mock API
-    if (url === '/prescriptions') {
-      if (method === 'get') {
-        let list = db.prescriptions;
-        if (params) {
-          if (params.patientId) list = list.filter(p => p.patientId === params.patientId);
-          if (params.doctorId) list = list.filter(p => p.doctorId === params.doctorId);
-        }
-        return list;
+    // 5. Prescriptions Fallback
+    if (url === '/prescriptions' && method === 'get') {
+      if (params && params.patientId) {
+        return db.prescriptions.filter(p => p.patientId === params.patientId);
       }
-      if (method === 'post') {
-        const id = "pres_" + (db.prescriptions.length + 1);
-        const newPres = { id, date: new Date().toISOString().split('T')[0], ...data };
-        db.prescriptions.push(newPres);
-
-        // Complete appointment
-        const appIdx = db.appointments.findIndex(a => a.id === data.appointmentId);
-        if (appIdx !== -1) {
-          db.appointments[appIdx].status = "Completed";
-          db.appointments[appIdx].notes = "Digital Prescription Created.";
-        }
-
-        saveMockDb(db);
-        return newPres;
-      }
+      return db.prescriptions;
+    }
+    if (url === '/prescriptions' && method === 'post') {
+      const newPres = {
+        id: `pres_${Date.now()}`,
+        ...data,
+        date: new Date().toISOString().split('T')[0]
+      };
+      db.prescriptions.unshift(newPres);
+      saveMockDb(db);
+      return newPres;
     }
 
-    // 6. Medical Records Mock API
+    // 6. Medical Records Fallback
     if (url.startsWith('/records/')) {
-      const pId = url.split('/').pop();
+      const pId = url.split('/')[2];
       return db.records.filter(r => r.patientId === pId);
     }
     if (url === '/records' && method === 'post') {
-      const id = "rec_" + (db.records.length + 1);
-      const newRec = { id, uploadedAt: new Date().toISOString().split('T')[0], ...data };
-      db.records.push(newRec);
+      const newRec = {
+        id: `rec_${Date.now()}`,
+        ...data,
+        uploadedAt: new Date().toISOString().split('T')[0]
+      };
+      db.records.unshift(newRec);
       saveMockDb(db);
       return newRec;
     }
     if (url.startsWith('/records/') && method === 'delete') {
-      const id = url.split('/').pop();
-      db.records = db.records.filter(r => r.id !== id);
+      const rId = url.split('/')[2];
+      db.records = db.records.filter(r => r.id !== rId);
       saveMockDb(db);
       return { success: true };
     }
 
-    // 7. Notifications Mock API
-    if (url.startsWith('/notifications/') && url.endsWith('/read')) {
+    // 7. Notifications Fallback
+    if (url.includes('/notifications') && url.includes('/read')) {
       const uId = url.split('/')[2];
-      db.notifications.filter(n => n.userId === uId).forEach(n => n.read = true);
+      db.notifications.forEach(n => {
+        if (n.userId === uId) n.read = true;
+      });
       saveMockDb(db);
       return { success: true };
     }
@@ -306,7 +279,7 @@ const apiRequest = async (method, url, data = null, params = null) => {
 
     // 8. AI Assistant Triage Chatbot Logic Fallback
     if (url === '/ai/chat') {
-      const query = data.message.toLowerCase();
+      const query = (data?.message || '').toLowerCase();
       let department = "General Medicine";
       let textAnalysis = "Consult with a health specialist.";
 
@@ -316,7 +289,7 @@ const apiRequest = async (method, url, data = null, params = null) => {
       } else if (query.includes("bone") || query.includes("joint") || query.includes("fracture") || query.includes("spine")) {
         department = "Orthopedics";
         textAnalysis = "This indicates a bone or joint distress. Recommend our expert **Orthopedics** team.";
-      } else if (query.includes("ear") || query.includes("nose") || query.includes("throat") || query.includes("hearing") || query.includes("throat")) {
+      } else if (query.includes("ear") || query.includes("nose") || query.includes("throat") || query.includes("hearing")) {
         department = "ENT";
         textAnalysis = "These nasal or auditory complaints match the scope of **ENT** services.";
       } else if (query.includes("brain") || query.includes("headache") || query.includes("nerve") || query.includes("paralysis")) {
@@ -334,8 +307,20 @@ const apiRequest = async (method, url, data = null, params = null) => {
       }
 
       return {
-        reply: `Hi! I'm the Saveetha Clinical Bot. ${textAnalysis} \n\nI recommend scheduling a consultation slot in our **${department}** department.\n\n*⚠️ Emergency Notice: If this is an critical health emergency, proceed to the nearest emergency room immediately.*`,
-        recommendedDepartment: department
+        reply: `Hi! I'm the MediBook AI Clinical Bot. ${textAnalysis} \n\nI recommend scheduling a consultation slot in our **${department}** department.\n\n*⚠️ Emergency Notice: If this is a critical health emergency, proceed to the nearest emergency room immediately.*`,
+        recommendedDepartment: department,
+        source: 'CLIENT_FALLBACK'
+      };
+    }
+
+    // 8b. Ollama Status Fallback
+    if (url === '/ai/ollama/status') {
+      return {
+        status: 'UNAVAILABLE',
+        configuredModel: 'llama3.2:3b',
+        isModelAvailable: false,
+        availableModels: [],
+        message: 'Running in demonstration fallback mode'
       };
     }
 
@@ -419,7 +404,8 @@ export const api = {
     chat: (message, history) => apiRequest('post', '/ai/chat', { message, history }),
     triage: (symptoms, patientAge, gender) => apiRequest('post', '/ai/triage', { symptoms, patientAge, gender }),
     recommend: (preferences) => apiRequest('post', '/ai/recommend', preferences),
-    forecast: (days = 7) => apiRequest('get', '/ai/forecast', null, { days })
+    forecast: (days = 7) => apiRequest('get', '/ai/forecast', null, { days }),
+    getOllamaStatus: () => apiRequest('get', '/ai/ollama/status')
   },
   analytics: {
     get: () => apiRequest('get', '/analytics/overview'),

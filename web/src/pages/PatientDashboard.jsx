@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import HealthcareChat from '../components/HealthcareChat';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import { getDepartmentIcon } from '../utils/departmentIcons';
@@ -876,120 +877,16 @@ export const PatientDashboard = () => {
               </div>
             )}
 
-            {/* TAB 5: AI HEALTH ASSISTANT CHATBOT */}
+            {/* TAB 5: AI HEALTH ASSISTANT CHATBOT (OLLAMA LOCAL LLM & CLINICAL DECISION SUPPORT) */}
             {activeTab === 'ai-chat' && (
-              <div class="space-y-6">
-                <div class="space-y-2">
-                  <h2 class="text-2xl font-extrabold text-slate-900 font-sans flex items-center gap-2">
-                    <Bot class="w-6 h-6 text-hospital-600 animate-bounce-slow" />
-                    AI Symptom Triage Coordinator
-                  </h2>
-                  <p class="text-slate-500 text-sm">Outline symptoms to analyze. The assistant parses them, refers appropriate clinics, and assists scheduling.</p>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                  
-                  {/* Quick Triage Symptoms presets */}
-                  <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
-                    <h4 class="font-extrabold text-xs uppercase tracking-wider text-slate-400">Quick Diagnostics Prompts</h4>
-                    <div class="flex flex-col gap-2.5">
-                      <button
-                        onClick={() => triggerAIChatSuggestion("I have sharp chest pains radiating to my left arm, along with shortness of breath.")}
-                        class="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 text-left border border-slate-100 transition-colors"
-                      >
-                        🫀 Chest Pain / Cardiology Symptoms
-                      </button>
-                      <button
-                        onClick={() => triggerAIChatSuggestion("My ear has been aching and feeling completely blocked since swimming yesterday.")}
-                        class="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 text-left border border-slate-100 transition-colors"
-                      >
-                        👂 Earache & Throat Irritation
-                      </button>
-                      <button
-                        onClick={() => triggerAIChatSuggestion("I have intense migraines with dizziness and nerve numbness in my fingers.")}
-                        class="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 text-left border border-slate-100 transition-colors"
-                      >
-                        🧠 Migraines & Dizziness concerns
-                      </button>
-                    </div>
-
-                    <div class="p-4 bg-amber-50/50 border border-amber-200 rounded-2xl text-[10px] text-amber-800 leading-relaxed font-semibold">
-                      ⚠️ EMERGENCY DISCLAIMER: Triage outputs are for recommendation guidance only. Always review clinical issues with real medical practitioners.
-                    </div>
-                  </div>
-
-                  {/* Chat interface */}
-                  <div class="lg:col-span-3 bg-white border border-slate-100 rounded-3xl shadow-sm flex flex-col h-[520px] overflow-hidden">
-                    {/* Chat Bubble Logs */}
-                    <div class="flex-1 p-6 overflow-y-auto space-y-4">
-                      {chatHistory.map((chat, idx) => {
-                        const isAssistant = chat.role === 'assistant';
-                        return (
-                          <div 
-                            key={idx}
-                            class={`flex items-start gap-3 text-sm ${isAssistant ? 'justify-start' : 'justify-end'}`}
-                          >
-                            {isAssistant && (
-                              <div class="w-8 h-8 rounded-lg bg-hospital-600 text-white flex items-center justify-center flex-shrink-0 mt-1 shadow-md shadow-hospital-600/10">
-                                <Bot class="w-4 h-4" />
-                              </div>
-                            )}
-                            <div class={`p-4 rounded-2xl max-w-xl text-left shadow-sm ${
-                              isAssistant
-                                ? 'bg-slate-100 text-slate-800 rounded-tl-none font-medium'
-                                : 'bg-hospital-600 text-white rounded-tr-none font-semibold'
-                            }`}>
-                              <p class="whitespace-pre-wrap leading-relaxed">{chat.content}</p>
-
-                              {/* Interactive routing action inside chat! */}
-                              {isAssistant && chat.recommendedDepartment && (
-                                <div class="mt-4 pt-3 border-t border-slate-200/50 flex flex-wrap gap-2.5 items-center">
-                                  <span class="text-[10px] text-slate-400 font-bold uppercase">Clinical Suggestion:</span>
-                                  <button
-                                    onClick={() => {
-                                      setDept(chat.recommendedDepartment);
-                                      setActiveTab('book');
-                                    }}
-                                    class="px-3 py-1.5 bg-hospital-600 hover:bg-hospital-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-                                  >
-                                    <Sparkles class="w-3 h-3" /> Book in {chat.recommendedDepartment}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      
-                      {aiLoading && (
-                        <div class="flex items-center gap-2 text-slate-400 font-semibold text-xs text-left">
-                          <div class="animate-bounce h-2 w-2 bg-slate-400 rounded-full"></div>
-                          <div class="animate-bounce h-2 w-2 bg-slate-400 rounded-full [animation-delay:0.2s]"></div>
-                          <div class="animate-bounce h-2 w-2 bg-slate-400 rounded-full [animation-delay:0.4s]"></div>
-                          <span>AI Triage checking clinics availability...</span>
-                        </div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-
-                    {/* Input message form */}
-                    <form onSubmit={handleSendChat} class="p-4 border-t border-slate-100 flex gap-2">
-                      <input
-                        type="text"
-                        value={chatMessage}
-                        onChange={(e) => setChatMessage(e.target.value)}
-                        placeholder="Describe symptoms here..."
-                        class="flex-1 px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-hospital-500 text-sm font-semibold"
-                      />
-                      <button
-                        type="submit"
-                        class="p-3 bg-hospital-600 hover:bg-hospital-700 text-white rounded-2xl shadow-md shadow-hospital-600/10 hover:shadow-hospital-600/20 transition-all flex items-center justify-center"
-                      >
-                        <Send class="w-5 h-5" />
-                      </button>
-                    </form>
-                  </div>
-                </div>
+              <div className="space-y-6">
+                <HealthcareChat
+                  patientName={user?.name || "Patient"}
+                  onSelectDepartment={(recommendedDept) => {
+                    setDept(recommendedDept);
+                    setActiveTab('book');
+                  }}
+                />
               </div>
             )}
 

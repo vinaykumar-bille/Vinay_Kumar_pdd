@@ -253,38 +253,110 @@ export const aiService = {
   },
 
   /**
-   * Interactive AI healthcare appointment coordinator.
+   * Checks Ollama local LLM connectivity and model status through FastAPI AI microservice.
    */
-  async chatAssistant({ message, history = [] }) {
-    const query = (message || '').toLowerCase();
+  async getOllamaStatus() {
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/ai/ollama/status`, {
+        signal: AbortSignal.timeout(2500)
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      // AI microservice or Ollama offline
+    }
 
-    // Check emergency
-    if (query.includes('emergency') || query.includes('chest pain') || query.includes('can not breathe') || query.includes('heart attack')) {
+    return {
+      status: 'UNAVAILABLE',
+      baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
+      configuredModel: process.env.OLLAMA_MODEL || 'llama3.2:3b',
+      isModelAvailable: false,
+      availableModels: [],
+      message: 'Ollama local LLM or AI microservice is not currently reachable. Operating in clinical fallback mode.'
+    };
+  },
+
+  /**
+   * Interactive AI healthcare appointment coordinator.
+   * Attempts local Ollama inference via Python FastAPI with deterministic emergency red-flag guardrails.
+   */
+  async chatAssistant({ message, history = [], user = null }) {
+    if (!message || !message.trim()) {
+      throw new Error('Message is required and cannot be empty.');
+    }
+
+    const trimmed = message.trim();
+    if (trimmed.length > 2000) {
+      throw new Error('Message exceeds maximum allowable length of 2000 characters.');
+    }
+
+    const query = trimmed.toLowerCase();
+
+    // 1. Critical Red-Flag Emergency Guardrail (Deterministic Dual-Layer Defense)
+    if (
+      query.includes('crushing chest pain') ||
+      query.includes('severe shortness of breath') ||
+      query.includes('heart attack') ||
+      query.includes('sudden paralysis') ||
+      query.includes('slurred speech') ||
+      query.includes('heavy bleeding') ||
+      query.includes('unconscious')
+    ) {
       return {
-        reply: `⚠️ **CRITICAL EMERGENCY NOTICE**\n\nIf you or someone nearby is experiencing acute medical distress (severe chest pressure, breathing difficulty, sudden weakness, or trauma), **do not wait for an online appointment**.\n\nPlease proceed immediately to the nearest hospital Emergency Room or call national emergency services (**108 / 112**).\n\nMediBook AI is for scheduled consultations and cannot replace emergency triage.`,
-        recommendedDepartment: 'Emergency',
-        action: 'EMERGENCY_ALERT'
+        reply: `🚨 **CRITICAL MEDICAL EMERGENCY NOTICE**\n\nIf you or someone nearby is experiencing acute medical distress (severe chest pressure, breathing difficulty, sudden weakness, or trauma), **do not wait for an online appointment**.\n\nPlease proceed immediately to the nearest hospital Emergency Room or call national emergency services (**108 / 112** in India, **911** in the US).\n\n*MediBook AI is for scheduled clinical consultations and cannot replace acute emergency medical care.*`,
+        recommendedDepartment: 'Emergency Medicine / Immediate Hospital Care',
+        urgency: 'CRITICAL_EMERGENCY',
+        action: 'EMERGENCY_ALERT',
+        source: 'CLINICAL_NLP_SAFETY_GUARD',
+        disclaimer: 'Emergency triage rule triggered. Seek emergency hospital care immediately.'
       };
     }
 
-    // Triage symptoms if query describes symptoms
-    const triage = await this.getSpecialtyGuidance({ symptoms: message });
+    // 2. Try calling Python FastAPI AI microservice with Ollama LLM integration
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: trimmed, history }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (err) {
+      // AI microservice or Ollama unavailable; proceed gracefully to local clinical rule engine
+    }
+
+    // 3. High-Fidelity Clinical Decision Support Fallback
+    const triage = await this.getSpecialtyGuidance({ symptoms: trimmed });
 
     let customAnswer = '';
-    if (query.includes('how to book') || query.includes('book appointment')) {
-      customAnswer = `To book an appointment on MediBook AI:\n1. Browse our **Find a Doctor** catalog.\n2. Choose a specialist by department, fee, or rating.\n3. Pick an available date and suitable time slot.\n4. Select your preferred consultation mode (**In-Person** at the clinic or **Video Teleconsultation**).\n5. Confirm your booking to receive an instant confirmation and appointment reference number.`;
+    if (
+      query.includes('how to book') ||
+      query.includes('how can i book') ||
+      query.includes('book an appointment') ||
+      query.includes('book appointment') ||
+      query.includes('booking') ||
+      query.includes('schedule')
+    ) {
+      customAnswer = `**How to Book an Appointment on MediBook AI:**\n\n1. Browse our **Find a Doctor** catalog to filter specialists by department, consultation fee, or rating.\n2. Pick an available date and suitable time slot.\n3. Select your preferred consultation mode (**In-Person** at the clinic or **Video Teleconsultation**).\n4. Confirm your booking to receive an instant reference number and digital confirmation.`;
     } else if (query.includes('cancel') || query.includes('reschedule')) {
-      customAnswer = `You can reschedule or cancel an appointment from your **Patient Dashboard** under the **Upcoming Appointments** section. Click the "Reschedule" or "Cancel" button on your appointment card. Please provide a brief reason so our clinic coordinators stay informed.`;
+      customAnswer = `**Rescheduling or Cancelling an Appointment:**\n\nYou can reschedule or cancel an appointment from your **Patient Dashboard** under the **Upcoming Appointments** section. Click the **Reschedule** or **Cancel** button on your appointment card. All slot updates are reflected instantly across clinic calendars.`;
     } else if (query.includes('video') || query.includes('teleconsult')) {
-      customAnswer = `MediBook AI supports secure, HD Video Teleconsultations powered by WebRTC. When you choose a video consultation, an encrypted meeting link is generated automatically. You can launch the video room directly from your Patient Dashboard when it's time for your appointment!`;
+      customAnswer = `**Telehealth Video Consultations:**\n\nMediBook AI supports secure, HD Video Teleconsultations powered by WebRTC. When you choose a video consultation, an encrypted meeting link is generated automatically. You can launch the video room directly from your Patient Dashboard when it's time for your appointment!`;
+    } else if (query.includes('record') || query.includes('lab') || query.includes('test')) {
+      customAnswer = `**Medical Records & Diagnostics:**\n\nYou can upload prior lab reports, blood panels, or imaging files in the **Medical Records** section. Having your prior records ready helps your consulting doctor make more informed clinical decisions.`;
     } else {
-      customAnswer = `Based on your message, our clinical coordinator suggests consulting our **${triage.recommendedDepartment}** department.\n\n${triage.triageSummary}\n\nWould you like me to show you available specialists in **${triage.recommendedDepartment}**?`;
+      customAnswer = `Based on your description, our clinical coordinator suggests consulting our **${triage.recommendedDepartment}** department.\n\n${triage.triageSummary}\n\nWould you like to review available specialists in **${triage.recommendedDepartment}**?`;
     }
 
     return {
       reply: `${customAnswer}\n\n*🛡️ Disclaimer: MediBook AI provides administrative and appointment guidance. We do not provide automated medical diagnoses. For clinical evaluation, please consult a licensed doctor.*`,
       recommendedDepartment: triage.recommendedDepartment,
-      urgency: triage.urgency
+      urgency: triage.urgency,
+      source: 'CLINICAL_RULE_FALLBACK'
     };
   }
 };
