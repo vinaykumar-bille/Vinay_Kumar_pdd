@@ -1,13 +1,40 @@
 import express from 'express';
 import dbStore from '../models/store.js';
+import { verifyAuth, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
+router.use(verifyAuth);
+
+const canReadAppointment = (user, appt) =>
+  user.role === 'ADMIN' ||
+  (user.role === 'PATIENT' && String(user.id) === String(appt.patientId)) ||
+  (user.role === 'DOCTOR' && String(user.docId || user.id) === String(appt.doctorId));
+
+const appointmentAccess = async (req, res, next) => {
+  try {
+    const appt = await dbStore.getAppointmentById(req.params.id);
+    if (!appt) return res.status(404).json({ error: 'Appointment not found.' });
+    if (!canReadAppointment(req.user, appt)) return res.status(403).json({ error: 'Access denied.' });
+    req.appointment = appt;
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Unable to verify appointment access.' });
+  }
+};
 
 // List appointments with filtering
 router.get('/', async (req, res) => {
   try {
     const { patientId, doctorId, clinicId, status, date, search } = req.query;
-    const list = await dbStore.getAllAppointments({ patientId, doctorId, clinicId, status, date, search });
+    const scoped = req.user.role === 'PATIENT'
+      ? { patientId: req.user.id, status, date, search }
+      : req.user.role === 'DOCTOR'
+        ? { doctorId: req.user.docId || req.user.id, status, date, search }
+        : req.user.role === 'ADMIN' || req.user.role === 'RECEPTIONIST'
+          ? { patientId, doctorId, clinicId, status, date, search }
+          : null;
+    if (!scoped) return res.status(403).json({ error: 'Access denied.' });
+    const list = await dbStore.getAllAppointments(scoped);
     res.json(list);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -15,7 +42,7 @@ router.get('/', async (req, res) => {
 });
 
 // Single appointment
-router.get('/:id', async (req, res) => {
+router.get('/:id', appointmentAccess, async (req, res) => {
   try {
     const appt = await dbStore.getAppointmentById(req.params.id);
     if (!appt) return res.status(404).json({ error: 'Appointment not found.' });
@@ -26,7 +53,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new appointment (Atomic slot reservation & duplicate prevention)
-router.post('/', async (req, res) => {
+router.post('/', authorizeRoles('PATIENT', 'ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
     const { patientId, doctorId, appointmentDate, startTime, consultationType, reasonForVisit, patientName } = req.body;
 
@@ -34,6 +61,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'patientId, doctorId, appointmentDate, and startTime are required.' });
     }
 
+    if (req.user.role === 'PATIENT' && String(patientId) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'Cannot book for another patient.' });
+    }
     const appt = await dbStore.createAppointment({
       patientId,
       patientName,
@@ -55,7 +85,7 @@ router.post('/', async (req, res) => {
 });
 
 // Reschedule appointment
-router.patch('/:id/reschedule', async (req, res) => {
+router.patch('/:id/reschedule', appointmentAccess, async (req, res) => {
   try {
     const { newDate, newStartTime, reason, updatedBy } = req.body;
 
@@ -80,7 +110,7 @@ router.patch('/:id/reschedule', async (req, res) => {
 });
 
 // Cancel appointment
-router.patch('/:id/cancel', async (req, res) => {
+router.patch('/:id/cancel', appointmentAccess, async (req, res) => {
   try {
     const { reason, cancelledBy } = req.body;
     const updated = await dbStore.cancelAppointment(req.params.id, {
@@ -94,7 +124,7 @@ router.patch('/:id/cancel', async (req, res) => {
 });
 
 // Update appointment status (CHECKED_IN, IN_CONSULTATION, COMPLETED, NO_SHOW, etc.)
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', authorizeRoles('ADMIN', 'DOCTOR', 'RECEPTIONIST'), appointmentAccess, async (req, res) => {
   try {
     const { status, doctorNotes, updatedBy } = req.body;
 
@@ -115,7 +145,7 @@ router.patch('/:id/status', async (req, res) => {
 });
 
 // Appointment history & reschedule audit
-router.get('/:id/history', async (req, res) => {
+router.get('/:id/history', appointmentAccess, async (req, res) => {
   try {
     const appt = await dbStore.getAppointmentById(req.params.id);
     if (!appt) return res.status(404).json({ error: 'Appointment not found.' });
