@@ -1,9 +1,11 @@
 import express from 'express';
 import dbStore from '../models/store.js';
+import { verifyAuth, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
+router.use(verifyAuth);
 
-router.get('/:patientId', async (req, res) => {
+router.get('/:patientId', (req, res, next) => req.user.role === 'ADMIN' || String(req.user.id) === String(req.params.patientId) ? next() : res.status(403).json({ error: 'Access denied.' }), async (req, res) => {
   try {
     const list = await dbStore.getRecordsByPatient(req.params.patientId);
     res.json(list);
@@ -12,7 +14,7 @@ router.get('/:patientId', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authorizeRoles('ADMIN', 'DOCTOR'), async (req, res) => {
   try {
     const { patientId, patientName, fileName, fileSize, recordType, description, fileUrl } = req.body;
     if (!patientId || !fileName) {
@@ -33,7 +35,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authorizeRoles('ADMIN'), async (req, res) => {
   try {
     await dbStore.deleteRecord(req.params.id);
     res.json({ success: true, message: 'Record removed successfully.' });
