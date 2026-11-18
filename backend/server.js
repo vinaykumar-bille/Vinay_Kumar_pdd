@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Server as SocketIOServer } from 'socket.io';
 import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
 
 import { connectDB, getDbStatus } from './src/config/db.js';
 import dbStore from './src/models/store.js';
@@ -29,13 +30,13 @@ const PORT = process.env.PORT || 5000;
 // Initialize Socket.IO for real-time web & mobile synchronization
 const io = new SocketIOServer(server, {
   cors: {
-    origin: '*',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
   }
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -56,10 +57,20 @@ app.use((req, res, next) => {
 });
 
 // Socket.IO Connection Handling
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token || !process.env.JWT_SECRET) return next(new Error('Authentication required'));
+    socket.data.identity = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    next(new Error('Invalid authentication'));
+  }
+});
 io.on('connection', (socket) => {
   // User room subscription for real-time notifications
   socket.on('join', (userId) => {
-    if (userId) {
+    if (userId && String(userId) === String(socket.data.identity.id)) {
       socket.join(`user_${userId}`);
     }
   });
@@ -81,10 +92,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Seed data reset endpoint for demonstration testing
-app.post('/api/seed/reset', (req, res) => {
-  dbStore.reset();
-  res.json({ success: true, message: 'MediBook AI demonstration database reset to pristine baseline state.' });
-});
+// Reset endpoint intentionally unavailable outside isolated development tooling.
 
 // API Routes
 app.use('/api/auth', authRoutes);
