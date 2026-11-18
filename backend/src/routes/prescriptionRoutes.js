@@ -1,9 +1,11 @@
 import express from 'express';
 import dbStore from '../models/store.js';
+import { verifyAuth, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
+router.use(verifyAuth);
 
-router.get('/', async (req, res) => {
+router.get('/', authorizeRoles('ADMIN', 'DOCTOR'), async (req, res) => {
   try {
     const { patientId, doctorId, appointmentId } = req.query;
     const list = await dbStore.getAllPrescriptions({ patientId, doctorId, appointmentId });
@@ -13,7 +15,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authorizeRoles('DOCTOR'), async (req, res) => {
   try {
     const { appointmentId, patientId, patientName, doctorId, doctorName, diagnosis, symptoms, medications, advice, followUpDate } = req.body;
 
