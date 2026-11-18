@@ -25,7 +25,7 @@ router.post('/register', async (req, res) => {
       email,
       passwordHash,
       phone,
-      role: role ? role.toUpperCase() : 'PATIENT',
+      role: 'PATIENT',
       gender,
       dateOfBirth,
       city
@@ -49,7 +49,7 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    if (!email) {
+    if (!email || typeof password !== 'string' || !password) {
       return res.status(400).json({ error: 'Email address is required.' });
     }
 
@@ -70,13 +70,9 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'This account is currently inactive. Contact administrator.' });
     }
 
-    // Verify password if password provided, or allow demonstration quick-login
-    if (password && user.passwordHash) {
-      const match = await bcrypt.compare(password, user.passwordHash);
-      // Allow fallback if password matches default demonstration password
-      if (!match && password !== 'Password@123' && password !== 'admin123' && password !== 'doctor123') {
-        return res.status(401).json({ error: 'Invalid password. Please try again.' });
-      }
+    // Require the account's actual password. Never accept demo credentials.
+    if (!user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const token = generateToken(user);
@@ -112,28 +108,15 @@ router.post('/logout', (req, res) => {
 });
 
 // Forgot Password
-router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  const user = await dbStore.findUserByEmail(email);
-  if (!user) {
-    return res.status(404).json({ error: 'No account found with this email address.' });
-  }
-  res.json({
-    success: true,
-    message: `Password reset instructions have been dispatched to ${email}. In development mode, you can log in with default password "Password@123".`
-  });
+// Do not disclose account existence or claim email was sent.
+router.post('/forgot-password', (req, res) => {
+  res.status(501).json({ error: 'Secure password recovery is not configured. Contact support.' });
 });
 
 // Reset Password
-router.post('/reset-password', async (req, res) => {
-  const { email, newPassword } = req.body;
-  const user = await dbStore.findUserByEmail(email);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found.' });
-  }
-  const passwordHash = await bcrypt.hash(newPassword, 10);
-  await dbStore.updateUser(user.id, { passwordHash });
-  res.json({ success: true, message: 'Password has been updated successfully. Please log in with your new password.' });
+// Password resets require a separately verified, expiring, single-use token.
+router.post('/reset-password', (req, res) => {
+  res.status(501).json({ error: 'Secure password recovery is not configured. Contact support.' });
 });
 
 export default router;

@@ -1,9 +1,11 @@
 import express from 'express';
 import dbStore from '../models/store.js';
+import { verifyAuth, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
+router.use(verifyAuth);
 
-router.get('/', async (req, res) => {
+router.get('/', authorizeRoles('ADMIN', 'RECEPTIONIST'), async (req, res) => {
   try {
     const list = await dbStore.getAllPatients();
     // Return safe data without passwordHash
@@ -14,7 +16,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', (req, res, next) => req.user.role === 'ADMIN' || req.user.role === 'RECEPTIONIST' || String(req.user.id) === String(req.params.id) ? next() : res.status(403).json({ error: 'Access denied.' }), async (req, res) => {
   try {
     const profile = await dbStore.getPatientProfile(req.params.id);
     if (!profile) return res.status(404).json({ error: 'Patient not found.' });
@@ -25,7 +27,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', (req, res, next) => req.user.role === 'ADMIN' || String(req.user.id) === String(req.params.id) ? next() : res.status(403).json({ error: 'Access denied.' }), async (req, res) => {
   try {
     const updated = await dbStore.updatePatientProfile(req.params.id, req.body);
     const { passwordHash, ...safe } = updated;
