@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken';
 import dbStore from '../models/store.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'medibook-ai-super-secure-production-jwt-token-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+}
 
 export const generateToken = (user) => {
   return jwt.sign(
