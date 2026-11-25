@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MediBook AI",
-    "slug": "medibook-ai",
+    "name": "MediFlow AI",
+    "slug": "mediflow-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,25 +9,25 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0284c7"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.medibook.ai"
+      "bundleIdentifier": "com.mediflow.ai"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0284c7"
+        "backgroundColor": "#FFFFFF"
       },
-      "package": "com.medibook.ai"
+      "package": "com.mediflow.ai"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "medibook-ai-prod"
+        "projectId": "mediflow-ai-prod"
       }
     }
   }

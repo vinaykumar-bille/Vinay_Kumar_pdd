@@ -18,10 +18,12 @@ export const AIAssistantScreen: React.FC<AIAssistantScreenProps> = ({ onSelectDe
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Hello! I am your MediBook AI Healthcare Assistant.\n\nDescribe your symptoms (e.g. 'sharp lower back pain', 'chest tightness', 'fever with cough') and I'll suggest the most relevant medical department and doctors for your appointment."
+      content: "Hello! I am your MediFlow AI Healthcare Assistant.\n\nDescribe your symptoms (e.g. 'sharp lower back pain', 'chest tightness', 'fever with cough') and I'll suggest the most relevant medical department and doctors for your appointment."
     }
   ]);
   const [loading, setLoading] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const languages = ['English', 'Telugu', 'Tamil', 'Hindi'];
 
   const quickSymptoms = [
     "Severe headache and blurred vision",
@@ -42,7 +44,7 @@ export const AIAssistantScreen: React.FC<AIAssistantScreenProps> = ({ onSelectDe
 
     try {
       const historyPayload = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
-      const chatRes = await mobileApi.ai.chat(query, historyPayload);
+      const chatRes = await mobileApi.ai.chat(query, historyPayload, selectedLanguage);
       const isEmergency = chatRes.urgency === 'CRITICAL_EMERGENCY' || chatRes.action === 'EMERGENCY_ALERT';
 
       const botReply: Message = {
@@ -70,6 +72,28 @@ export const AIAssistantScreen: React.FC<AIAssistantScreenProps> = ({ onSelectDe
         <Text style={styles.disclaimerText}>
           ⚠️ AI Guidance is informational and does not replace certified professional medical judgment.
         </Text>
+      </View>
+
+      {/* Language Selector Chips */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8, backgroundColor: '#f1f5f9' }}>
+        {languages.map(lang => (
+          <TouchableOpacity
+            key={lang}
+            onPress={() => setSelectedLanguage(lang)}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 6,
+              backgroundColor: selectedLanguage === lang ? '#15324F' : '#ffffff',
+              borderWidth: 1,
+              borderColor: selectedLanguage === lang ? '#15324F' : '#cbd5e1'
+            }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '700', color: selectedLanguage === lang ? '#087F8C' : '#475569' }}>
+              {lang}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <ScrollView contentContainerStyle={styles.chatContent}>

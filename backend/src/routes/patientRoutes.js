@@ -1,9 +1,11 @@
 import express from 'express';
 import dbStore from '../models/store.js';
+import { verifyAuth, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+// List patients - only clinical and administrative staff
+router.get('/', verifyAuth, authorizeRoles('DOCTOR', 'RECEPTIONIST', 'ADMIN'), async (req, res) => {
   try {
     const list = await dbStore.getAllPatients();
     // Return safe data without passwordHash
@@ -14,8 +16,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+// Get patient profile - ownership check for patients, allowed for staff
+router.get('/:id', verifyAuth, async (req, res) => {
   try {
+    if (req.user.role === 'PATIENT' && req.user.id !== req.params.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own patient profile.' });
+    }
+
     const profile = await dbStore.getPatientProfile(req.params.id);
     if (!profile) return res.status(404).json({ error: 'Patient not found.' });
     const { passwordHash, ...safe } = profile;
@@ -25,9 +32,15 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+// Update patient profile - ownership check for patients, allowed for staff
+router.put('/:id', verifyAuth, async (req, res) => {
   try {
+    if (req.user.role === 'PATIENT' && req.user.id !== req.params.id) {
+      return res.status(403).json({ error: 'Access denied: You can only update your own patient profile.' });
+    }
+
     const updated = await dbStore.updatePatientProfile(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Patient not found.' });
     const { passwordHash, ...safe } = updated;
     res.json(safe);
   } catch (error) {

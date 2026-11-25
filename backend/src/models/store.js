@@ -430,6 +430,19 @@ class DataStore {
       throw new Error(`This time slot (${startTime} on ${appointmentDate}) is already booked and no longer available. Please choose a different slot.`);
     }
 
+    const avail = await this.getDoctorAvailability(doctorId);
+    if (avail) {
+      const dateObj = new Date(appointmentDate + 'T00:00:00');
+      const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayName = daysOfWeek[dateObj.getDay()];
+      if (avail.workingDays && avail.workingDays.length > 0 && !avail.workingDays.includes(dayName)) {
+        throw new Error(`${doctor.name} does not consult on ${dayName}s.`);
+      }
+      if (avail.leaveDates && avail.leaveDates.includes(appointmentDate)) {
+        throw new Error(`${doctor.name} is on leave on ${appointmentDate}.`);
+      }
+    }
+
     const apptId = this.generateId('app');
     const appointmentNumber = this.generateAppointmentNumber();
     const mode = (consultationType || 'IN_PERSON').toUpperCase();
@@ -514,6 +527,19 @@ class DataStore {
 
     if (conflicting) {
       throw new Error(`The requested new slot (${newStartTime} on ${newDate}) is already booked. Please choose another time.`);
+    }
+
+    const avail = await this.getDoctorAvailability(appt.doctorId);
+    if (avail) {
+      const dateObj = new Date(newDate + 'T00:00:00');
+      const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayName = daysOfWeek[dateObj.getDay()];
+      if (avail.workingDays && avail.workingDays.length > 0 && !avail.workingDays.includes(dayName)) {
+        throw new Error(`${appt.doctorName} does not consult on ${dayName}s.`);
+      }
+      if (avail.leaveDates && avail.leaveDates.includes(newDate)) {
+        throw new Error(`${appt.doctorName} is on leave on ${newDate}.`);
+      }
     }
 
     const previousDate = appt.appointmentDate;
@@ -622,6 +648,10 @@ class DataStore {
   }
 
   // --- PRESCRIPTIONS ---
+  async getPrescriptionById(id) {
+    return this.prescriptions.find(p => p.id === id) || null;
+  }
+
   async getAllPrescriptions(filter = {}) {
     let list = [...this.prescriptions];
     if (filter.patientId) list = list.filter(p => p.patientId === filter.patientId);
@@ -680,6 +710,10 @@ class DataStore {
   }
 
   // --- MEDICAL RECORDS ---
+  async getRecordById(id) {
+    return this.records.find(r => r.id === id) || null;
+  }
+
   async getRecordsByPatient(patientId) {
     return this.records.filter(r => r.patientId === patientId);
   }

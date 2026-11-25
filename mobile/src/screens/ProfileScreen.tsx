@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Role } from '../types';
 
@@ -9,6 +9,8 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const { user, role, demoLogin, logout } = useAuth();
+  const [legalModalVisible, setLegalModalVisible] = useState(false);
+  const [legalDocType, setLegalDocType] = useState<'privacy' | 'terms'>('privacy');
 
   const handleRoleSwitch = async (newRole: Role) => {
     await demoLogin(newRole);
@@ -19,6 +21,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     onLogout();
   };
 
+  const openLegalDoc = (type: 'privacy' | 'terms') => {
+    setLegalDocType(type);
+    setLegalModalVisible(true);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Profile Header Card */}
@@ -27,7 +34,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'U'}</Text>
         </View>
         <Text style={styles.userName}>{user?.name || 'Vinay Kumar'}</Text>
-        <Text style={styles.userEmail}>{user?.email}</Text>
+        <Text style={styles.userEmail}>{user?.email || 'vinay@gmail.com'}</Text>
         <View style={styles.roleBadge}>
           <Text style={styles.roleBadgeText}>Active Role: {role}</Text>
         </View>
@@ -60,8 +67,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
       {/* Quick Role Switcher (Presentation Demo) */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Demo Role Switcher</Text>
-        <Text style={styles.cardSub}>Switch your active login view instantly for testing and grading.</Text>
+        <Text style={styles.cardTitle}>Verified Clinical Roles</Text>
+        <Text style={styles.cardSub}>Switch your authenticated role for testing and presentation.</Text>
         <View style={styles.rolesGrid}>
           {(['PATIENT', 'DOCTOR', 'RECEPTIONIST', 'ADMIN'] as const).map(r => (
             <TouchableOpacity
@@ -77,9 +84,29 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         </View>
       </View>
 
+      {/* Legal & Compliance Section */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Legal & Compliance</Text>
+        <Text style={styles.cardSub}>Review healthcare data policies, medical disclaimers, and user terms.</Text>
+        <View style={styles.legalBtnRow}>
+          <TouchableOpacity
+            style={styles.legalBtn}
+            onPress={() => openLegalDoc('privacy')}
+          >
+            <Text style={styles.legalBtnText}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.legalBtn}
+            onPress={() => openLegalDoc('terms')}
+          >
+            <Text style={styles.legalBtnText}>Terms & Conditions</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Emergency Hotline Contact */}
       <View style={styles.emergencyCard}>
-        <Text style={styles.emergencyTitle}>🚨 Emergency Medical Hotlines</Text>
+        <Text style={styles.emergencyTitle}>Emergency Medical Hotlines</Text>
         <View style={styles.emergencyRow}>
           <View style={styles.emergencyCol}>
             <Text style={styles.emergencyLabel}>Ambulance</Text>
@@ -94,8 +121,78 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
       {/* Logout */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Sign Out from MediBook AI</Text>
+        <Text style={styles.logoutText}>Sign Out from MediFlow AI</Text>
       </TouchableOpacity>
+
+      {/* Legal Document Modal */}
+      <Modal
+        visible={legalModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setLegalModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {legalDocType === 'privacy' ? 'Privacy Policy' : 'Terms and Conditions'}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setLegalModalVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {legalDocType === 'privacy' ? (
+              <View style={styles.legalDocBody}>
+                <Text style={styles.docHeading}>1. Information We Collect</Text>
+                <Text style={styles.docText}>
+                  MediFlow AI collects patient names, verified credentials, clinical appointment choices, and uploaded diagnostic records strictly to facilitate clinical scheduling and telehealth sessions.
+                </Text>
+
+                <Text style={styles.docHeading}>2. HIPAA & GDPR Alignment</Text>
+                <Text style={styles.docText}>
+                  All communication is encrypted via TLS 1.3 and database storage uses AES-256 encryption. Role-based access controls strictly limit medical charts: patients access only their own charts and doctors access only patients assigned to their schedules.
+                </Text>
+
+                <Text style={styles.docHeading}>3. Patient Data Ownership</Text>
+                <Text style={styles.docText}>
+                  You own your medical data. You have the right to inspect, download, and delete discretionary uploaded medical documents at any time.
+                </Text>
+
+                <Text style={styles.docHeading}>4. Medical Disclaimer</Text>
+                <Text style={styles.docText}>
+                  MediFlow AI is an administrative and scheduling coordination platform. AI assistant guidance is informational and does not constitute formal medical diagnosis or emergency intervention.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.legalDocBody}>
+                <Text style={styles.docHeading}>1. Emergency Medical Care</Text>
+                <Text style={styles.docText}>
+                  Do not use MediFlow AI for acute emergencies. In life-threatening emergencies (e.g., severe chest pain, stroke symptoms, acute shortness of breath), call 108 or 112 immediately.
+                </Text>
+
+                <Text style={styles.docHeading}>2. Telehealth Consent</Text>
+                <Text style={styles.docText}>
+                  By participating in virtual teleconsultations, you acknowledge that remote exams have clinical limitations. Consulting physicians reserve full clinical discretion to require in-person visits.
+                </Text>
+
+                <Text style={styles.docHeading}>3. Booking & Cancellation Rules</Text>
+                <Text style={styles.docText}>
+                  Time slots are reserved in real time. Cancellations and rescheduling must be performed at least 2 hours in advance of the scheduled appointment time.
+                </Text>
+
+                <Text style={styles.docHeading}>4. User Responsibilities</Text>
+                <Text style={styles.docText}>
+                  Users agree to provide accurate medical information and maintain login credential confidentiality.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -103,7 +200,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F5F7F9',
   },
   content: {
     padding: 16,
@@ -111,31 +208,31 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 22,
+    borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
-    backgroundColor: '#0284c7',
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: '#15324F',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
   avatarText: {
-    color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '900',
+    color: '#087F8C',
+    fontSize: 26,
+    fontWeight: '800',
   },
   userName: {
     fontSize: 18,
-    fontWeight: '900',
-    color: '#0f172a',
+    fontWeight: '800',
+    color: '#15324F',
   },
   userEmail: {
     fontSize: 12,
@@ -143,20 +240,22 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   roleBadge: {
-    backgroundColor: '#e0f2fe',
+    backgroundColor: '#f0fdf9',
+    borderWidth: 1,
+    borderColor: '#99f6e0',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 8,
     marginTop: 8,
   },
   roleBadgeText: {
-    color: '#0369a1',
+    color: '#087F8C',
     fontSize: 10,
     fontWeight: '800',
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -165,8 +264,8 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: '#15324F',
+    marginBottom: 4,
   },
   cardSub: {
     fontSize: 11,
@@ -188,7 +287,7 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#15324F',
     marginTop: 2,
   },
   rolesGrid: {
@@ -198,7 +297,7 @@ const styles = StyleSheet.create({
   },
   roleSwitchBtn: {
     backgroundColor: '#f1f5f9',
-    borderRadius: 10,
+    borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flex: 1,
@@ -206,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   roleSwitchBtnActive: {
-    backgroundColor: '#0284c7',
+    backgroundColor: '#15324F',
   },
   roleSwitchText: {
     fontSize: 11,
@@ -214,13 +313,31 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   roleSwitchTextActive: {
-    color: '#ffffff',
+    color: '#087F8C',
+  },
+  legalBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  legalBtn: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  legalBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15324F',
   },
   emergencyCard: {
     backgroundColor: '#fef2f2',
     borderWidth: 1,
     borderColor: '#fecaca',
-    borderRadius: 20,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 16,
   },
@@ -251,13 +368,61 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#ef4444',
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: 'center',
   },
   logoutText: {
     color: '#ef4444',
     fontSize: 12,
     fontWeight: '800',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    paddingTop: 48,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#15324F',
+  },
+  modalCloseBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 6,
+  },
+  modalCloseText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  legalDocBody: {
+    paddingBottom: 40,
+  },
+  docHeading: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#15324F',
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  docText: {
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
   },
 });
 

@@ -58,7 +58,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onNavigateR
       <View style={styles.card}>
         <View style={styles.headerArea}>
           <Text style={styles.icon}>🩺</Text>
-          <Text style={styles.brandTitle}>MediBook AI</Text>
+          <Text style={styles.brandTitle}>MediFlow AI</Text>
           <Text style={styles.tagline}>Book Smarter. Consult Better. Stay Healthier.</Text>
         </View>
 
@@ -144,7 +144,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onNavigateR
         </TouchableOpacity>
 
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>New to MediBook AI? </Text>
+          <Text style={styles.footerText}>New to MediFlow AI? </Text>
           <TouchableOpacity onPress={onNavigateRegister}>
             <Text style={styles.footerLink}>Register Patient Account</Text>
           </TouchableOpacity>

@@ -7,6 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
+        brand: {
+          navy: '#15324F',
+          teal: '#087F8C',
+          white: '#FFFFFF',
+          lightGray: '#F5F7F9',
+          charcoal: '#202B36',
+        },
         hospital: {
           50: '#f0f7ff',
           100: '#e0effe',
@@ -14,11 +21,11 @@ export default {
           300: '#7ccbfd',
           400: '#38b0fa',
           500: '#0ea0ea',
-          600: '#0280c7',
-          700: '#0366a1',
+          600: '#15324F',
+          700: '#0c486e',
           800: '#075685',
-          900: '#0c486e',
-          950: '#082e49',
+          900: '#082e49',
+          950: '#051d2f',
         },
         clinical: {
           50: '#f0fdf9',
@@ -26,8 +33,8 @@ export default {
           200: '#99f6e0',
           300: '#5eead2',
           400: '#2dd4bf',
-          500: '#14b8a6',
-          600: '#0d9488',
+          500: '#087F8C',
+          600: '#087F8C',
           700: '#0f766e',
           800: '#115e59',
           900: '#134e4a',

@@ -87,7 +87,7 @@ router.get('/appointment-forecast', async (req, res) => {
  */
 router.post('/chat', aiChatLimiter, verifyAuth, async (req, res) => {
   try {
-    const { message, history } = req.body;
+    const { message, history, language } = req.body;
 
     // Validate payload
     if (!message || typeof message !== 'string' || !message.trim()) {
@@ -104,7 +104,8 @@ router.post('/chat', aiChatLimiter, verifyAuth, async (req, res) => {
     const reply = await aiService.chatAssistant({
       message: trimmed,
       history: validHistory,
-      user: req.user
+      user: req.user,
+      language: language || 'English'
     });
 
     res.json(reply);

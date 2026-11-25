@@ -7,7 +7,7 @@ interface AuthContextType {
   role: Role;
   token: string | null;
   loading: boolean;
-  login: (email: string, role: string, password?: string) => Promise<User>;
+  login: (email: string, role?: string, password?: string) => Promise<User>;
   register: (userData: any) => Promise<User>;
   logout: () => void;
   demoLogin: (role: Role) => Promise<void>;
@@ -17,23 +17,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>({
-    id: 'usr_1',
-    name: 'Vinay Kumar',
-    email: 'vinay@gmail.com',
-    role: 'PATIENT',
-    phone: '9876543210',
-    gender: 'Male',
-    age: 24,
-    dateOfBirth: '2000-05-14',
-    city: 'Chennai',
-    bloodGroup: 'O+',
-    allergies: 'None'
-  });
-  const [token, setToken] = useState<string | null>('demo_jwt_token_mobile');
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const login = async (email: string, selectedRole: string, password = 'Password@123') => {
+  const login = async (email: string, selectedRole?: string, password = 'Password@123') => {
     setLoading(true);
     try {
       const data = await mobileApi.auth.login(email, selectedRole, password);
@@ -73,13 +61,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const demoLogin = async (targetRole: Role) => {
     if (targetRole === 'PATIENT') {
-      await login('vinay@gmail.com', 'patient');
+      await login('vinay@gmail.com', 'patient', 'Password@123');
     } else if (targetRole === 'DOCTOR') {
-      await login('amit.verma@saveethamedicalcollege.com', 'doctor');
+      await login('amit.verma@saveethamedicalcollege.com', 'doctor', 'Password@123');
     } else if (targetRole === 'RECEPTIONIST') {
-      await login('reception@saveethahospital.com', 'receptionist');
+      await login('reception@saveethahospital.com', 'receptionist', 'Password@123');
     } else if (targetRole === 'ADMIN') {
-      await login('admin@gmail.com', 'admin');
+      await login('admin@gmail.com', 'admin', 'Password@123');
     }
   };
 

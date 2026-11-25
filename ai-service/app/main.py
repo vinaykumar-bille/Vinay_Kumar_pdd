@@ -1,7 +1,7 @@
 """
-MediBook AI - Python FastAPI Intelligence Service
+MediFlow AI - Python FastAPI Intelligence Service
 Exposes REST APIs for Doctor Recommendations, Clinical NLP Specialty Triage, Demand Forecasting,
-and Ollama Local LLM Healthcare Conversational Assistance.
+and Ollama Local LLM Healthcare Conversational Assistance with Multilingual Adaptation.
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,9 +15,9 @@ from .forecasting import forecast_appointment_demand
 from .ollama_service import ollama_service, OllamaService
 
 app = FastAPI(
-    title="MediBook AI Intelligence Service",
+    title="MediFlow AI Intelligence Service",
     description="Explainable clinical decision support, symptom-to-specialty triage, operational forecasting, and Ollama local LLM healthcare assistant.",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 # CORS configuration
@@ -50,12 +50,13 @@ class ChatRequest(BaseModel):
     history: Optional[List[ChatMessage]] = Field(default=[], description="Previous conversation turn history")
     model: Optional[str] = Field(default=None, description="Optional Ollama model override")
     temperature: Optional[float] = Field(default=0.3, ge=0.0, le=1.0)
+    language: Optional[str] = Field(default="English", description="Target response language: English, Telugu, Tamil, or Hindi")
 
 @app.get("/api/ai/health")
 def health_check():
     return {
         "status": "HEALTHY",
-        "service": "MediBook AI FastAPI Intelligence Service",
+        "service": "MediFlow AI FastAPI Intelligence Service",
         "timestamp": datetime.now().isoformat(),
         "modules": [
             "ClinicalTriageNLP",
@@ -91,7 +92,8 @@ def api_chat_assistant(req: ChatRequest):
             message=req.message,
             history=history_dicts,
             model_override=req.model,
-            temperature=req.temperature or 0.3
+            temperature=req.temperature or 0.3,
+            language=req.language or "English"
         )
         return result
     except ValueError as ve:
@@ -121,12 +123,14 @@ def api_recommend_doctors(req: RecommendRequest):
 
 @app.post("/api/ai/specialty-guidance")
 def api_specialty_guidance(req: TriageRequest):
-    if not req.symptoms or not req.symptoms.strip():
-        raise HTTPException(status_code=400, detail="Symptoms description is required.")
     try:
         return analyze_symptoms(req.symptoms)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/triage")
+def api_triage_alias(req: TriageRequest):
+    return analyze_symptoms(req.symptoms)
 
 @app.get("/api/ai/appointment-forecast")
 def api_appointment_forecast():
@@ -134,7 +138,3 @@ def api_appointment_forecast():
         return forecast_appointment_demand()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

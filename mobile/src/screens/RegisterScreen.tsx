@@ -56,7 +56,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSuccess, onNav
         <View style={styles.headerArea}>
           <Text style={styles.icon}>📋</Text>
           <Text style={styles.title}>Patient Registration</Text>
-          <Text style={styles.subtitle}>Join MediBook AI for intelligent doctor appointments</Text>
+          <Text style={styles.subtitle}>Join MediFlow AI for intelligent doctor appointments</Text>
         </View>
 
         {error ? (

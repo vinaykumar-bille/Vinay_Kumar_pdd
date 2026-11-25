@@ -44,13 +44,13 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
+// Login - strict password & role verification
 router.post('/login', async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ error: 'Email address is required.' });
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email address and password are required.' });
     }
 
     const user = await dbStore.findUserByEmail(email);
@@ -70,13 +70,13 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'This account is currently inactive. Contact administrator.' });
     }
 
-    // Verify password if password provided, or allow demonstration quick-login
-    if (password && user.passwordHash) {
-      const match = await bcrypt.compare(password, user.passwordHash);
-      // Allow fallback if password matches default demonstration password
-      if (!match && password !== 'Password@123' && password !== 'admin123' && password !== 'doctor123') {
-        return res.status(401).json({ error: 'Invalid password. Please try again.' });
-      }
+    if (!user.passwordHash) {
+      return res.status(401).json({ error: 'Invalid credentials configuration.' });
+    }
+
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid email or password. Please verify your credentials.' });
     }
 
     const token = generateToken(user);

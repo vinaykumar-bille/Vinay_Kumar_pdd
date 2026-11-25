@@ -12,8 +12,8 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  title = "MediBook AI",
-  subtitle = "Book Smarter. Consult Better.",
+  title = "MediFlow AI",
+  subtitle = "AI-Powered Doctor Appointments",
   showBack = false,
   onBack,
   onNotificationPress,

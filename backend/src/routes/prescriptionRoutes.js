@@ -1,11 +1,20 @@
 import express from 'express';
 import dbStore from '../models/store.js';
+import { verifyAuth, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+// List prescriptions with role-based isolation
+router.get('/', verifyAuth, async (req, res) => {
   try {
-    const { patientId, doctorId, appointmentId } = req.query;
+    let { patientId, doctorId, appointmentId } = req.query;
+
+    if (req.user.role === 'PATIENT') {
+      patientId = req.user.id; // Patients can only retrieve their own prescriptions
+    } else if (req.user.role === 'DOCTOR') {
+      doctorId = req.user.docId || req.user.id; // Doctors view their own written prescriptions
+    }
+
     const list = await dbStore.getAllPrescriptions({ patientId, doctorId, appointmentId });
     res.json(list);
   } catch (error) {
@@ -13,25 +22,55 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+// Single prescription by ID
+router.get('/:id', verifyAuth, async (req, res) => {
   try {
-    const { appointmentId, patientId, patientName, doctorId, doctorName, diagnosis, symptoms, medications, advice, followUpDate } = req.body;
+    const pres = await dbStore.getPrescriptionById(req.params.id);
+    if (!pres) return res.status(404).json({ error: 'Prescription not found.' });
 
-    if (!patientId || !doctorId || !diagnosis) {
-      return res.status(400).json({ error: 'patientId, doctorId, and diagnosis are required.' });
+    // Authorization check
+    if (req.user.role === 'PATIENT' && pres.patientId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own prescriptions.' });
     }
+    if (req.user.role === 'DOCTOR' && pres.doctorId !== req.user.docId && pres.doctorId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You are not the prescribing physician.' });
+    }
+
+    res.json(pres);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create prescription (Strictly restricted to licensed doctors and clinical admins)
+router.post('/', verifyAuth, authorizeRoles('DOCTOR', 'ADMIN'), async (req, res) => {
+  try {
+    const { appointmentId, patientId, diagnosis, symptoms, medications, advice, followUpDate } = req.body;
+
+    if (!patientId || !diagnosis) {
+      return res.status(400).json({ error: 'patientId and diagnosis are required fields.' });
+    }
+
+    const patient = await dbStore.findUserById(patientId);
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient not found.' });
+    }
+
+    // Bind doctor identity to authenticated clinical session
+    const doctorId = req.user.docId || req.user.id;
+    const doctorName = req.user.name;
 
     const newPres = await dbStore.createPrescription({
       appointmentId,
       patientId,
-      patientName,
+      patientName: patient.name,
       doctorId,
       doctorName,
       diagnosis,
       symptoms,
-      medications,
-      advice,
-      followUpDate
+      medications: Array.isArray(medications) ? medications : [],
+      advice: advice || '',
+      followUpDate: followUpDate || ''
     });
 
     res.status(201).json(newPres);

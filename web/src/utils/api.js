@@ -108,49 +108,16 @@ const apiRequest = async (method, url, data = null, params = null) => {
       throw error;
     }
 
+    // Strict security: Reject fake authentication and fake booking confirmations
+    if (url === '/auth/login' || url === '/auth/register') {
+      throw new Error("Unable to connect to authentication server. Please verify the backend is running.");
+    }
+    if (url.startsWith('/appointments') && method !== 'get') {
+      throw new Error("Unable to complete appointment operation with server. Please verify your connection.");
+    }
+
     console.warn(`[Client Fallback] Backend unreachable at ${url}. Operating in local demo store.`);
     const db = getMockDb();
-
-    // 1. Auth Login Fallback
-    if (url === '/auth/login') {
-      const { email, password, role } = data;
-      const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (user) {
-        return {
-          token: "mock_jwt_token_sample_2026",
-          user: { ...user, token: "mock_jwt_token_sample_2026" }
-        };
-      }
-      const newMockUser = {
-        id: `usr_${Date.now()}`,
-        name: email.split('@')[0],
-        email,
-        role: role || 'patient',
-        gender: "Not specified",
-        age: 30
-      };
-      db.users.push(newMockUser);
-      saveMockDb(db);
-      return {
-        token: "mock_jwt_token_sample_2026",
-        user: { ...newMockUser, token: "mock_jwt_token_sample_2026" }
-      };
-    }
-
-    // 2. Auth Register Fallback
-    if (url === '/auth/register') {
-      const newPatient = {
-        id: `usr_${Date.now()}`,
-        ...data,
-        role: data.role || 'patient'
-      };
-      db.users.push(newPatient);
-      saveMockDb(db);
-      return {
-        token: "mock_jwt_token_sample_2026",
-        user: { ...newPatient, token: "mock_jwt_token_sample_2026" }
-      };
-    }
 
     // 3. Doctors Fallback
     if (url === '/doctors' || url.startsWith('/doctors?')) {
@@ -401,10 +368,11 @@ export const api = {
     walkIn: (data) => apiRequest('post', '/receptionist/walk-in', data)
   },
   ai: {
-    chat: (message, history) => apiRequest('post', '/ai/chat', { message, history }),
+    chat: (message, history, language = 'English') => apiRequest('post', '/ai/chat', { message, history, language }),
     triage: (symptoms, patientAge, gender) => apiRequest('post', '/ai/triage', { symptoms, patientAge, gender }),
-    recommend: (preferences) => apiRequest('post', '/ai/recommend', preferences),
-    forecast: (days = 7) => apiRequest('get', '/ai/forecast', null, { days }),
+    specialtyGuidance: (symptoms) => apiRequest('post', '/ai/specialty-guidance', { symptoms }),
+    recommend: (preferences) => apiRequest('post', '/ai/recommend-doctors', preferences),
+    forecast: (days = 7) => apiRequest('get', '/ai/appointment-forecast', null, { days }),
     getOllamaStatus: () => apiRequest('get', '/ai/ollama/status')
   },
   analytics: {

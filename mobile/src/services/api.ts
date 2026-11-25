@@ -156,41 +156,28 @@ let fallbackPrescriptions: Prescription[] = [
 
 export const mobileApi = {
   auth: {
-    login: async (email: string, role: string, password = 'Password@123') => {
+    login: async (email: string, role?: string, password = 'Password@123') => {
       try {
         const res = await axiosClient.post('/auth/login', { email, role, password });
+        if (res.data?.token) {
+          setAuthToken(res.data.token);
+        }
         return res.data;
       } catch (e: any) {
-        console.warn("Mobile API: Remote login unavailable, using verified local session", e.message);
-        return {
-          token: "jwt_mobile_demo_token_" + Date.now(),
-          user: {
-            id: role === 'doctor' ? 'doc_1' : 'usr_1',
-            name: role === 'doctor' ? 'Dr. Amit Verma' : (email.split('@')[0] || 'Vinay Kumar'),
-            email: email,
-            role: role.toUpperCase() as any,
-            phone: '9876543210',
-            bloodGroup: 'O+',
-            allergies: 'Penicillin (Mild)'
-          }
-        };
+        const errMsg = e.response?.data?.error || e.message || 'Authentication failed. Please verify your credentials.';
+        throw new Error(errMsg);
       }
     },
     register: async (userData: any) => {
       try {
         const res = await axiosClient.post('/auth/register', userData);
+        if (res.data?.token) {
+          setAuthToken(res.data.token);
+        }
         return res.data;
       } catch (e: any) {
-        return {
-          token: "jwt_mobile_demo_token_" + Date.now(),
-          user: {
-            id: "usr_" + Date.now(),
-            name: userData.name,
-            email: userData.email,
-            role: "PATIENT",
-            phone: userData.phone || '9876543210'
-          }
-        };
+        const errMsg = e.response?.data?.error || e.message || 'Registration failed. Please check your details.';
+        throw new Error(errMsg);
       }
     }
   },
@@ -245,23 +232,8 @@ export const mobileApi = {
         const res = await axiosClient.post('/appointments', data);
         return res.data;
       } catch (e: any) {
-        const newAppt: Appointment = {
-          id: "app_" + Date.now(),
-          appointmentNumber: `APT-2026-${Math.floor(100 + Math.random() * 900)}`,
-          patientId: data.patientId || 'usr_1',
-          patientName: data.patientName || 'Vinay Kumar',
-          doctorId: data.doctorId,
-          doctorName: data.doctorName || 'Dr. Amit Verma',
-          department: data.department || 'Cardiology',
-          date: data.date,
-          timeSlot: data.timeSlot,
-          status: 'Approved',
-          symptoms: data.symptoms || 'Routine checkup',
-          consultationType: data.consultationType || 'IN_PERSON',
-          createdAt: new Date().toISOString()
-        };
-        fallbackAppointments.unshift(newAppt);
-        return newAppt;
+        const errMsg = e.response?.data?.error || e.message || 'Appointment booking failed on server.';
+        throw new Error(errMsg);
       }
     },
     reschedule: async (id: string, newDate: string, newSlot: string, reason: string): Promise<Appointment> => {
@@ -272,28 +244,18 @@ export const mobileApi = {
           reason
         });
         return res.data;
-      } catch (e) {
-        const appt = fallbackAppointments.find(a => a.id === id);
-        if (appt) {
-          appt.date = newDate;
-          appt.timeSlot = newSlot;
-          appt.status = 'Approved';
-          appt.rescheduledFrom = `${appt.date} at ${appt.timeSlot}`;
-        }
-        return appt as Appointment;
+      } catch (e: any) {
+        const errMsg = e.response?.data?.error || e.message || 'Failed to reschedule appointment on server.';
+        throw new Error(errMsg);
       }
     },
     cancel: async (id: string, reason: string): Promise<Appointment> => {
       try {
         const res = await axiosClient.patch(`/appointments/${id}/cancel`, { reason });
         return res.data;
-      } catch (e) {
-        const appt = fallbackAppointments.find(a => a.id === id);
-        if (appt) {
-          appt.status = 'Cancelled';
-          appt.cancellationReason = reason;
-        }
-        return appt as Appointment;
+      } catch (e: any) {
+        const errMsg = e.response?.data?.error || e.message || 'Failed to cancel appointment on server.';
+        throw new Error(errMsg);
       }
     }
   },
@@ -366,9 +328,9 @@ export const mobileApi = {
   },
 
   ai: {
-    chat: async (message: string, history?: Array<{ role: string; content: string }>) => {
+    chat: async (message: string, history?: Array<{ role: string; content: string }>, language: string = 'English') => {
       try {
-        const res = await axiosClient.post('/ai/chat', { message, history });
+        const res = await axiosClient.post('/ai/chat', { message, history, language });
         return res.data;
       } catch (e) {
         const triageRes = await mobileApi.ai.triage(message);

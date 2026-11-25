@@ -59,6 +59,10 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ doctor, onSuccess,
   };
 
   const handleConfirmBooking = async () => {
+    if (!user) {
+      setBookingError("Please sign in to your account before booking an appointment.");
+      return;
+    }
     if (!selectedDate || !selectedSlot) {
       setBookingError("Please select both a date and an available time slot.");
       return;
@@ -67,12 +71,14 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ doctor, onSuccess,
     setBookingError('');
     try {
       const result = await mobileApi.appointments.create({
-        patientId: user?.id || 'usr_1',
-        patientName: user?.name || 'Vinay Kumar',
+        patientId: user.id,
+        patientName: user.name,
         doctorId: doctor.id,
         doctorName: doctor.name,
         department: doctor.department,
+        appointmentDate: selectedDate,
         date: selectedDate,
+        startTime: selectedSlot,
         timeSlot: selectedSlot,
         symptoms: symptoms || "Routine Clinical Consultation",
         consultationType: consultType

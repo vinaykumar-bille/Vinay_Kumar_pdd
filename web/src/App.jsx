@@ -12,6 +12,8 @@ import DoctorDashboard from './pages/DoctorDashboard';
 import ReceptionistDashboard from './pages/ReceptionistDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import TelehealthVideoRoom from './pages/TelehealthVideoRoom';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
 
 export const App = () => {
   return (
@@ -22,6 +24,8 @@ export const App = () => {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
 
           {/* Secure Role-based Dashboards */}
           <Route 

@@ -281,7 +281,7 @@ export const aiService = {
    * Interactive AI healthcare appointment coordinator.
    * Attempts local Ollama inference via Python FastAPI with deterministic emergency red-flag guardrails.
    */
-  async chatAssistant({ message, history = [], user = null }) {
+  async chatAssistant({ message, history = [], user = null, language = 'English' }) {
     if (!message || !message.trim()) {
       throw new Error('Message is required and cannot be empty.');
     }
@@ -304,7 +304,7 @@ export const aiService = {
       query.includes('unconscious')
     ) {
       return {
-        reply: `🚨 **CRITICAL MEDICAL EMERGENCY NOTICE**\n\nIf you or someone nearby is experiencing acute medical distress (severe chest pressure, breathing difficulty, sudden weakness, or trauma), **do not wait for an online appointment**.\n\nPlease proceed immediately to the nearest hospital Emergency Room or call national emergency services (**108 / 112** in India, **911** in the US).\n\n*MediBook AI is for scheduled clinical consultations and cannot replace acute emergency medical care.*`,
+        reply: `🚨 **CRITICAL MEDICAL EMERGENCY NOTICE**\n\nIf you or someone nearby is experiencing acute medical distress (severe chest pressure, breathing difficulty, sudden weakness, or trauma), **do not wait for an online appointment**.\n\nPlease proceed immediately to the nearest hospital Emergency Room or call national emergency services (**108 / 112** in India, **911** in the US).\n\n*MediFlow AI is for scheduled clinical consultations and cannot replace acute emergency medical care.*`,
         recommendedDepartment: 'Emergency Medicine / Immediate Hospital Care',
         urgency: 'CRITICAL_EMERGENCY',
         action: 'EMERGENCY_ALERT',
@@ -318,7 +318,7 @@ export const aiService = {
       const response = await fetch(`${AI_SERVICE_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, history }),
+        body: JSON.stringify({ message: trimmed, history, language }),
         signal: AbortSignal.timeout(10000)
       });
       if (response.ok) {

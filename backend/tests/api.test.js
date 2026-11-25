@@ -297,6 +297,70 @@ async function runTests() {
     assert(reply.recommendedDepartment === 'Orthopedics' || reply.reply.includes('Orthopedics'), 'Must route to Orthopedics');
   });
 
+  // Test 21: Doctor working days enforcement
+  await test('Doctor working-day validation rejects non-working days', async () => {
+    // doc_1 (Dr. Amit Verma) works Monday, Wednesday, Friday
+    // 2026-10-18 is a Sunday
+    let caught = false;
+    try {
+      await dbStore.createAppointment({
+        patientId: testPatientId,
+        doctorId: 'doc_1',
+        appointmentDate: '2026-10-18', // Sunday
+        startTime: '10:00 AM',
+        consultationType: 'IN_PERSON'
+      });
+    } catch (err) {
+      caught = true;
+      assert(err.message.includes('not consult') || err.message.includes('Sunday') || err.message.includes('available'), 'Error must specify day mismatch');
+    }
+    assert(caught, 'Booking on a non-working day must throw');
+  });
+
+  // Test 22: Role-based authorization middleware
+  await test('authorizeRoles middleware rejects unauthorized role access with HTTP 403', async () => {
+    const { authorizeRoles } = await import('../src/middleware/auth.js');
+    const req = { user: { id: 'p_1', role: 'PATIENT' } };
+    let statusCode = 200;
+    let resBody = null;
+    const res = {
+      status(code) { statusCode = code; return this; },
+      json(d) { resBody = d; return this; }
+    };
+    let nextCalled = false;
+    const middleware = authorizeRoles('DOCTOR', 'ADMIN');
+    middleware(req, res, () => { nextCalled = true; });
+    assert(!nextCalled, 'Should not allow PATIENT to access DOCTOR/ADMIN endpoint');
+    assert.strictEqual(statusCode, 403, 'Must return 403 Forbidden');
+  });
+
+  // Test 23: Strict password comparison rejects invalid credentials
+  await test('Authentication rejects invalid password with false', async () => {
+    const bcrypt = (await import('bcryptjs')).default;
+    const patientUser = await dbStore.findUserByEmail('vinay@gmail.com');
+    assert(patientUser, 'Seed patient must exist');
+    const valid = await bcrypt.compare('WrongPassword!999', patientUser.passwordHash);
+    assert.strictEqual(valid, false, 'Invalid password must not match');
+    const correct = await bcrypt.compare('Password@123', patientUser.passwordHash);
+    assert.strictEqual(correct, true, 'Correct seed password must match');
+  });
+
+  // Test 24: Store provides getRecordById and getPrescriptionById methods
+  await test('Store provides getRecordById and getPrescriptionById methods', async () => {
+    const rec = await dbStore.createRecord({
+      patientId: testPatientId,
+      fileName: 'test_lab_report.pdf',
+      recordType: 'Lab Report'
+    });
+    const fetchedRec = await dbStore.getRecordById(rec.id);
+    assert(fetchedRec && fetchedRec.id === rec.id, 'Must retrieve record by ID');
+
+    const allPres = await dbStore.getAllPrescriptions({ patientId: testPatientId });
+    assert(allPres.length > 0, 'Must have at least one prescription from earlier test');
+    const byId = await dbStore.getPrescriptionById(allPres[0].id);
+    assert(byId && byId.id === allPres[0].id, 'Must retrieve prescription by ID');
+  });
+
   console.log(`\n========================================`);
   console.log(`📊 Test Results: ${passed} Passed, ${failed} Failed`);
   console.log(`========================================\n`);
